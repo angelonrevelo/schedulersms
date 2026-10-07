@@ -1,283 +1,91 @@
-# SchedulerSMS - Enhanced Edition
+![Flutter](https://img.shields.io/badge/Flutter-package-02569B?logo=flutter&logoColor=white)
+![Dart](https://img.shields.io/badge/Dart-3-0175C2?logo=dart&logoColor=white)
+![License](https://img.shields.io/badge/license-MIT-green)
+![FlutterFlow](https://img.shields.io/badge/works%20with-FlutterFlow-4B39EF)
 
-A powerful and flexible Flutter package for scheduling SMS messages, now with per-customer scheduling, web support, Semaphore API integration, and extensive logging. Designed for seamless integration with FlutterFlow and custom Flutter applications.
+# SchedulerSMS
 
-## ✨ What's New
+**A Flutter package for scheduling SMS messages to customers — on Android, iOS and the web, with built-in support for the Semaphore SMS gateway in the Philippines.**
 
-- **🔐 Secure API Key Management**: API keys are now passed as parameters instead of being hardcoded in the repository.
-- **📱 Semaphore SMS Integration**: Built-in support for Semaphore SMS API (Philippine SMS provider).
-- **👥 Per-Customer Scheduling**: Associate scheduled messages with specific customers.
-- **🌐 Web Support**: Web-compatible implementation for integration with backend SMS APIs.
-- **📝 Extensive Logging**: Comprehensive logging system for easy debugging and error analysis.
-- **💪 Enhanced Models**: More detailed data models for `Customer` and `ScheduledSMS`.
+Write a message, pick a customer and a time, and SchedulerSMS sends it then. Scheduled messages are stored locally in SQLite, can be switched on or off, and report their status as they go out.
 
-## Features
+- **Per-customer scheduling** — keep a customer list and attach messages to each one.
+- **Works where SMS is possible** — sends directly on Android (in the background via WorkManager); on iOS it opens the native composer; on the web it sends through Semaphore or any backend you plug in.
+- **Philippine networks** — Globe, Smart and DITO, plus clients for eSIM (Airalo) and prepaid-load APIs.
+- **Built for FlutterFlow** — ready-made custom actions in `example/`.
+- **Logging** — structured logs you can export as JSON when something goes wrong.
 
-- **📅 SMS Scheduling**: Schedule SMS messages for future dates and times.
-- **🔄 Enable/Disable**: Toggle scheduled messages on/off.
-- **👥 Customer Management**: Create, update, and manage customer profiles.
-- **📱 Philippine Networks**: Full support for Globe, Smart, and DITO networks.
-- **🌐 eSIM & Load APIs**: Clients for integrating with eSIM and load providers.
-- **🔔 Status Updates**: Real-time status updates via streams.
-- **💾 Local Storage**: Reliable message and customer storage with SQLite.
-- **⚡ Background Processing**: Uses WorkManager for reliable background execution on mobile.
+## Install
 
-## Installation
-
-Add this to your `pubspec.yaml`:
+Add it to `pubspec.yaml`:
 
 ```yaml
 dependencies:
   schedulersms:
     git:
-      url: https://github.com/CelestialBrain/schedulersms
+      url: https://github.com/angelonrevelo/schedulersms
       ref: main
 ```
 
-Then run: `flutter pub get`
-
-## Platform Setup
-
-### Android
-
-Add to `android/app/src/main/AndroidManifest.xml`:
-
-```xml
-<uses-permission android:name="android.permission.SEND_SMS" />
-<uses-permission android:name="android.permission.READ_PHONE_STATE" />
-<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+```bash
+flutter pub get
 ```
 
-### iOS
+On Android, add `SEND_SMS`, `READ_PHONE_STATE` and `RECEIVE_BOOT_COMPLETED` permissions to `AndroidManifest.xml`. iOS and web need no extra setup — see [doc/internals.md](doc/internals.md) for the exact snippets.
 
-Add to `ios/Runner/Info.plist`:
+## Quick start (web, with Semaphore)
 
-```xml
-<key>NSContactsUsageDescription</key>
-<string>This app needs access to contacts to send SMS messages.</string>
-```
-
-**Note**: iOS does not allow sending SMS programmatically. The package will open the native SMS composer.
-
-### Web
-
-No special configuration is needed for the web. The package includes built-in support for Semaphore SMS API.
-
-## Usage
-
-### 1. Initialization
-
-**For Mobile:**
-```dart
-import 'package:schedulersms/schedulersms.dart';
-
-final smsService = SchedulerSmsService();
-await smsService.initialize();
-```
-
-**For Web with Semaphore API:**
 ```dart
 import 'package:schedulersms/schedulersms.dart';
 
 final scheduler = SchedulerSmsWebSemaphore();
+await scheduler.initialize(apiKey: semaphoreApiKey); // never hardcode the key
 
-// Initialize with your Semaphore API key
-await scheduler.initialize(
-  apiKey: 'your-semaphore-api-key-here',
-  senderName: 'YourBrand', // Optional, defaults to 'SEMAPHORE'
-);
-```
-
-**For Web with Custom SMS Sender:**
-```dart
-import 'package:schedulersms/schedulersms_web.dart';
-
-final smsSchedulerWeb = SchedulerSmsWeb();
-
-// Define your custom web SMS sender
-Future<bool> myWebSmsSender(ScheduledSMS sms) async {
-  // Integrate with your backend API (e.g., Twilio)
-  final response = await http.post(
-    Uri.parse('https://your-backend.com/send-sms'),
-    body: {
-      'to': sms.recipient,
-      'message': sms.message,
-    },
-  );
-  return response.statusCode == 200;
-}
-
-await smsSchedulerWeb.initialize(customSmsSender: myWebSmsSender);
-```
-
-### 2. Managing Customers
-
-```dart
-// Create a customer
 final customer = await scheduler.createCustomer(
-  name: 'John Doe',
+  name: 'Juan Dela Cruz',
   phoneNumber: '09171234567',
 );
 
-// Get all customers
-final customers = await scheduler.getAllCustomers();
-
-// Update a customer
-await scheduler.updateCustomer(
-  id: customer.id,
-  name: 'Johnathan Doe',
-);
-```
-
-### 3. Per-Customer Scheduling
-
-```dart
-// Schedule an SMS for a specific customer
-final scheduledSms = await scheduler.scheduleSms(
+await scheduler.scheduleSms(
   customer: customer,
-  message: 'Hello, John! This is a scheduled message.',
-  scheduledDate: DateTime.now().add(Duration(hours: 1)),
+  message: 'Your appointment is tomorrow at 10 AM.',
+  scheduledDate: DateTime.now().add(const Duration(hours: 1)),
 );
-
-// Get all messages for a customer
-final customerMessages = await scheduler.getScheduledSmsForCustomer(customer.id);
 ```
 
-### 4. Extensive Logging
+Get a Semaphore API key at [semaphore.co](https://semaphore.co/). To check a live key end to end: `dart run example/semaphore_live_test.dart` (balance) or `dart run example/semaphore_live_test.dart <phone>` (sends a test SMS).
 
-The package now includes a powerful logging system. You can access logs for debugging and error analysis.
+## Configuration
 
-```dart
-import 'package:schedulersms/src/utils/sms_logger.dart';
+The Flutter package reads no environment variables — API keys are passed in as parameters.
 
-final logger = SmsLogger();
+The optional eSIM / prepaid-load backend in `backend_api/` (Node, `npm start` or `npm run dev`) reads these from its `.env` (see `backend_api/.env.example`):
 
-// Get all log entries
-final allLogs = logger.logHistory;
+- `PORT` — port the API listens on.
+- `AIRALO_API_KEY` — Airalo eSIM API key.
+- `LOAD_API_UID`, `LOAD_API_PASSWORD` — prepaid-load provider credentials.
+- `LOAD_COMPANY_PREFIX` — company prefix for load transaction IDs.
 
-// Get only error logs
-final errorLogs = logger.getErrorLogs();
+## How it works
 
-// Export logs as JSON
-final jsonLogs = logger.exportLogsAsJson();
-
-// Add a custom log handler (e.g., to send logs to a server)
-logger.addLogHandler((entry) {
-  if (entry.level == LogLevel.error) {
-    // Send error to your analytics service
-  }
-});
 ```
-
-## Error Analysis Guide
-
-For detailed instructions on how to use the logging system for troubleshooting, please see our [Error Analysis Guide](doc/ERROR_ANALYSIS.md).
-
-## FlutterFlow Integration
-
-This package is fully compatible with FlutterFlow. See the [example/flutterflow_custom_actions.dart](example/flutterflow_custom_actions.dart) file for ready-to-use custom actions.
-
-### Quick Start for FlutterFlow
-
-1.  **Add Package**: Go to Project Dependencies → Custom Pub Dependencies and add:
-    ```
-    schedulersms:
-      git:
-        url: https://github.com/CelestialBrain/schedulersms
-        ref: main
-    ```
-
-2.  **Initialize on App Start**: Create a custom action with the following code:
-    ```dart
-    import 'package:schedulersms/schedulersms.dart';
-    
-    Future<String> initializeSchedulerSms(String apiKey) async {
-      try {
-        final scheduler = SchedulerSmsWebSemaphore();
-        await scheduler.initialize(apiKey: apiKey);
-        
-        final account = await scheduler.getAccountInfo();
-        return 'Initialized! Balance: ${account.creditBalance} credits';
-      } catch (e) {
-        return 'Error: $e';
-      }
-    }
-    ```
-
-3.  **Schedule SMS**: Create a custom action to schedule messages:
-    ```dart
-    import 'package:schedulersms/schedulersms.dart';
-    
-    Future<String> scheduleSms(
-      String phoneNumber,
-      String message,
-      DateTime scheduledDate,
-    ) async {
-      try {
-        final scheduler = SchedulerSmsWebSemaphore();
-        
-        // Create or find customer
-        Customer? customer = await scheduler.getCustomerByPhone(phoneNumber);
-        if (customer == null) {
-          customer = await scheduler.createCustomer(
-            name: 'Customer $phoneNumber',
-            phoneNumber: phoneNumber,
-          );
-        }
-        
-        // Schedule the SMS
-        final sms = await scheduler.scheduleSms(
-          customer: customer,
-          message: message,
-          scheduledDate: scheduledDate,
-        );
-        
-        return sms.id;
-      } catch (e) {
-        throw Exception('Failed to schedule SMS: $e');
-      }
-    }
-    ```
-
-### Security Best Practices
-
-**Important**: Never hardcode your API key in your public repository. Instead:
-
-1. Store the API key in FlutterFlow's App State or Secure Storage
-2. Pass the API key as a parameter when initializing the scheduler
-3. For production apps, consider using environment variables or a secure backend to manage API keys
-
-## Getting Your Semaphore API Key
-
-1. Sign up at [https://semaphore.co/](https://semaphore.co/)
-2. Navigate to your account dashboard
-3. Copy your API key from the API section
-4. Use this key when initializing the SMS scheduler
-
-## Live API Testing
-
-To verify your Semaphore integration works end-to-end:
-
-```bash
-# Check account balance
-dart run example/semaphore_live_test.dart
-
-# Send a test SMS
-dart run example/semaphore_live_test.dart 09171234567
+your app ──▶ SchedulerSMS ──▶ SQLite (customers, scheduled SMS)
+                  │
+                  ├─ Android: telephony + WorkManager (sends in background)
+                  ├─ iOS:     opens the native SMS composer
+                  └─ Web:     Semaphore API, or your own sender callback
 ```
-
-See [README_SEMAPHORE.md](README_SEMAPHORE.md) for detailed testing documentation.
 
 ## Limitations
 
--   **iOS**: Programmatic SMS sending is not possible. The native SMS composer will be opened.
--   **Web**: Direct SMS sending is not possible. Requires a backend API or service like Semaphore.
--   **Background Execution**: Some Android devices may have aggressive battery optimization that can affect background tasks.
+- **iOS** cannot send SMS programmatically; the user taps send in the composer.
+- **Web** cannot send SMS by itself; it needs Semaphore or your own backend.
+- Aggressive battery optimisation on some Android phones can delay background sends.
 
-## Contributing
+## Links
 
-Contributions are welcome! Please feel free to submit pull requests or open issues.
-
-## License
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+- [doc/internals.md](doc/internals.md) — the full usage reference (customers, logging, FlutterFlow actions, security)
+- [doc/](doc/) — FlutterFlow guides, error analysis, testing notes
+- [QUICKSTART.md](QUICKSTART.md), [QUICKSTART_SEMAPHORE.md](QUICKSTART_SEMAPHORE.md), [README_SEMAPHORE.md](README_SEMAPHORE.md)
+- [backend_api/README.md](backend_api/README.md) — the eSIM / load backend
+- [LICENSE](LICENSE) — MIT
